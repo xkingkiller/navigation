@@ -162,6 +162,13 @@ namespace move_base {
     //we'll start executing recovery behaviors at the beginning of our list
     recovery_index_ = 0;
 
+    //for get external commamd and publish state.
+    extern_cmd_sub_ = private_nh.subscribe< std_msgs::String >("extern_cmd", 1, boost::bind(&MoveBase::externalCmdCB, this, _1));
+    state_pub_ = private_nh.advertise<std_msgs::String>("state_pub", 1);
+    extern_cmd_ = NoExtCmd;
+    state_to_pub_ = IDLE_PUB;
+    state_pub_thread_ = new boost::thread(boost::bind(&MoveBase::statePublishThread, this));
+
     //we're all set up now so we can start the action server
     as_->start();
 
@@ -438,6 +445,10 @@ namespace move_base {
 
     delete planner_thread_;
 
+    state_pub_thread_->interrupt();
+    state_pub_thread_->join();
+    delete state_pub_thread_;
+
     delete planner_plan_;
     delete latest_plan_;
     delete controller_plan_;
@@ -598,7 +609,7 @@ namespace move_base {
         lock.lock();
         if(ros::Time::now() > attempt_end && runPlanner_){
           //we'll move into our obstacle clearing mode
-          state_ = CLEARING;
+          state_ = CLEARING_WAIT;//origin: CLEARING
           publishZeroVelocity();
           recovery_trigger_ = PLANNING_R;
         }
@@ -872,7 +883,7 @@ namespace move_base {
             last_oscillation_reset_ + ros::Duration(oscillation_timeout_) < ros::Time::now())
         {
           publishZeroVelocity();
-          state_ = CLEARING;
+          state_ = CLEARING_WAIT; //origin CLEARING
           recovery_trigger_ = OSCILLATION_R;
         }
         
@@ -896,7 +907,7 @@ namespace move_base {
           if(ros::Time::now() > attempt_end){
             //we'll move into our obstacle clearing mode
             publishZeroVelocity();
-            state_ = CLEARING;
+            state_ = CLEARING_WAIT; //origin: CLEARING
             recovery_trigger_ = CONTROLLING_R;
           }
           else{
@@ -915,7 +926,16 @@ namespace move_base {
         }
 
         break;
-
+      case CLEARING_WAIT:
+    	  ROS_INFO_NAMED("move_base","In clearing WAIT state");
+    	  if(extern_cmd_ == DoClear)
+    	  {
+    		  ROS_INFO_NAMED("move_base_clear_wait", "Clear wait got command, go to CLEARING");
+    		  state_ = CLEARING;
+    		  extern_cmd_ = NoExtCmd;
+    	  }
+    	  publishZeroVelocity();
+    	  break;
       //we'll try to clear out space with any user-provided recovery behaviors
       case CLEARING:
         ROS_INFO_NAMED("move_base","In clearing/recovery state");
@@ -1114,4 +1134,45 @@ namespace move_base {
       controller_costmap_ros_->stop();
     }
   }
+
+  void MoveBase::externalCmdCB(const std_msgs::String::ConstPtr& msg)
+  {
+	  if(!msg) return;
+	  ROS_INFO_STREAM("MoveBase Got ExtCmd: "<<msg->data);
+	  if(msg->data == "Navigation_Clear")
+		  extern_cmd_ = DoClear;
+	  else
+		  extern_cmd_ = NoExtCmd;
+  }
+
+  void MoveBase::statePublishThread()
+  {
+	ROS_INFO_NAMED("move_base_stat_publish_thread","Starting state publish thread...");
+	ros::NodeHandle n;
+	ros::Rate r(5.0);
+	std_msgs::String pubMsg;
+	while(n.ok()){
+		if((state_ == PLANNING || state_ == CONTROLLING) && runPlanner_){
+			state_to_pub_ = NORMAL_PUB;
+			pubMsg.data = "Normal";
+		}else if(state_ == CLEARING_WAIT && runPlanner_)
+		{
+			state_to_pub_ = NO_PATH_PUB;
+			pubMsg.data = "Clear_Wait";
+		}else if(state_ == CLEARING && runPlanner_)
+		{
+			state_to_pub_ = CLEARING_PUB;
+			pubMsg.data = "Clearing";
+		}else
+		{
+			state_to_pub_ = IDLE_PUB;
+			pubMsg.data = "Idle";
+		}
+		ROS_ERROR_STREAM("MoveBase State: " << pubMsg.data);
+		state_pub_.publish(pubMsg);
+		// sleep for fix frequency
+		r.sleep();
+	}
+  }
+
 };

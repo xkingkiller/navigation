@@ -59,6 +59,8 @@
 #include <dynamic_reconfigure/server.h>
 #include "move_base/MoveBaseConfig.h"
 
+#include <std_msgs/String.h>
+
 namespace move_base {
   //typedefs to help us out with the action server so that we don't hace to type so much
   typedef actionlib::SimpleActionServer<move_base_msgs::MoveBaseAction> MoveBaseActionServer;
@@ -66,6 +68,7 @@ namespace move_base {
   enum MoveBaseState {
     PLANNING,
     CONTROLLING,
+    CLEARING_WAIT,
     CLEARING
   };
 
@@ -74,6 +77,19 @@ namespace move_base {
     PLANNING_R,
     CONTROLLING_R,
     OSCILLATION_R
+  };
+
+
+  enum PublishState {
+	  IDLE_PUB = 0,
+	  NORMAL_PUB,
+	  NO_PATH_PUB,
+	  CLEARING_PUB,
+  };
+
+  enum ExternalCommand {
+	  NoExtCmd = 0,
+	  DoClear
   };
 
   /**
@@ -227,6 +243,15 @@ namespace move_base {
       move_base::MoveBaseConfig default_config_;
       bool setup_, p_freq_change_, c_freq_change_;
       bool new_global_plan_;
+
+      void externalCmdCB(const std_msgs::String::ConstPtr& msg);
+      void statePublishThread();
+      ros::Subscriber extern_cmd_sub_;
+      ros::Publisher state_pub_;
+      ExternalCommand extern_cmd_;
+      PublishState state_to_pub_;
+      boost::thread* state_pub_thread_;
+
   };
 };
 #endif
