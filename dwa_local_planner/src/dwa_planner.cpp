@@ -74,6 +74,9 @@ namespace dwa_local_planner {
     occdist_scale_ = config.occdist_scale;
     obstacle_costs_.setScale(resolution * occdist_scale_);
 
+    travdist_scale_ = config.travdist_scale;
+    travdist_costs_.setScale(travdist_scale_);
+
     stop_time_buffer_ = config.stop_time_buffer;
     oscillation_costs_.setOscillationResetDist(config.oscillation_reset_dist, config.oscillation_reset_angle);
     forward_point_distance_ = config.forward_point_distance;
@@ -159,7 +162,7 @@ namespace dwa_local_planner {
 
     traj_cloud_ = new pcl::PointCloud<base_local_planner::MapGridCostPoint>;
     traj_cloud_->header.frame_id = frame_id;
-    traj_cloud_pub_.advertise(private_nh, "trajectory_cloud2", 1);
+    traj_cloud_pub_.advertise(private_nh, "trajectory_cloud", 1);
     private_nh.param("publish_traj_pc", publish_traj_pc_, false);
 
     // set up all the cost functions that will be applied in order
@@ -171,7 +174,7 @@ namespace dwa_local_planner {
     critics.push_back(&alignment_costs_); // prefers trajectories that keep the robot nose on nose path
     critics.push_back(&path_costs_); // prefers trajectories on global path
     critics.push_back(&goal_costs_); // prefers trajectories that go towards (local) goal, based on wave propagation
-
+    critics.push_back(&travdist_costs_);
     // trajectory generators
     std::vector<base_local_planner::TrajectorySampleGenerator*> generator_list;
     generator_list.push_back(&generator_);

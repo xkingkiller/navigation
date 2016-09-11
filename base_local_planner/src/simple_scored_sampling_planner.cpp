@@ -50,6 +50,7 @@ namespace base_local_planner {
   double SimpleScoredSamplingPlanner::scoreTrajectory(Trajectory& traj, double best_traj_cost) {
     double traj_cost = 0;
     int gen_id = 0;
+    std::cout<<"Costs: ";
     for(std::vector<TrajectoryCostFunction*>::iterator score_function = critics_.begin(); score_function != critics_.end(); ++score_function) {
       TrajectoryCostFunction* score_function_p = *score_function;
       if (score_function_p->getScale() == 0) {
@@ -61,9 +62,11 @@ namespace base_local_planner {
         traj_cost = cost;
         break;
       }
+      std::cout<<"{"<<cost<<", ";
       if (cost != 0) {
         cost *= score_function_p->getScale();
       }
+      std::cout<<cost<<"}, ";
       traj_cost += cost;
       if (best_traj_cost > 0) {
         // since we keep adding positives, once we are worse than the best, we will stay worse
@@ -73,7 +76,7 @@ namespace base_local_planner {
       }
       gen_id ++;
     }
-
+    std::cout<<std::endl;
 
     return traj_cost;
   }
