@@ -796,7 +796,7 @@ namespace move_base {
     as_->publishFeedback(feedback);
 
     //check to see if we've moved far enough to reset our oscillation timeout
-    if(distance(current_position, oscillation_pose_) >= oscillation_distance_)
+    if(oscillation_distance_ <= 0.0 || distance(current_position, oscillation_pose_) >= oscillation_distance_)
     {
       last_oscillation_reset_ = ros::Time::now();
       oscillation_pose_ = current_position;
@@ -882,6 +882,7 @@ namespace move_base {
         if(oscillation_timeout_ > 0.0 &&
             last_oscillation_reset_ + ros::Duration(oscillation_timeout_) < ros::Time::now())
         {
+          ROS_INFO_STREAM("state_ = CLEARING_WAIT, reason: oscillation_timeout: "<<oscillation_timeout_);
           publishZeroVelocity();
           state_ = CLEARING_WAIT; //origin CLEARING
           recovery_trigger_ = OSCILLATION_R;
@@ -906,6 +907,7 @@ namespace move_base {
           //check if we've tried to find a valid control for longer than our time limit
           if(ros::Time::now() > attempt_end){
             //we'll move into our obstacle clearing mode
+        	ROS_INFO_STREAM("state_ = CLEARING_WAIT, reason: attempt_end: "<<controller_patience_);
             publishZeroVelocity();
             state_ = CLEARING_WAIT; //origin: CLEARING
             recovery_trigger_ = CONTROLLING_R;
@@ -928,11 +930,25 @@ namespace move_base {
         break;
       case CLEARING_WAIT:
     	  ROS_INFO_NAMED("move_base","In clearing WAIT state");
+
+    	  //disable the planner thread
+    	  {
+			boost::unique_lock<boost::mutex> lock(planner_mutex_);
+			runPlanner_ = false;
+			lock.unlock();
+    	  }
+
     	  if(extern_cmd_ == DoClear)
     	  {
     		  ROS_INFO_NAMED("move_base_clear_wait", "Clear wait got command, go to CLEARING");
     		  state_ = CLEARING;
     		  extern_cmd_ = NoExtCmd;
+    		  //enable planner again.
+    		  {
+				  boost::unique_lock<boost::mutex> lock(planner_mutex_);
+				  runPlanner_ = true;
+				  lock.unlock();
+    		  }
     	  }
     	  publishZeroVelocity();
     	  break;
