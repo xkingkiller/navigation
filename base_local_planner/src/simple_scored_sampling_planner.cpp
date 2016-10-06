@@ -47,26 +47,32 @@ namespace base_local_planner {
     critics_ = critics;
   }
 
-  double SimpleScoredSamplingPlanner::scoreTrajectory(Trajectory& traj, double best_traj_cost) {
+  double SimpleScoredSamplingPlanner::scoreTrajectory(Trajectory& traj, double best_traj_cost, bool debug) {
     double traj_cost = 0;
     int gen_id = 0;
-    std::cout<<"Costs: ";
+    if(debug)
+    	std::cout<<"===========Costs for one path======================critics_size: "<<critics_.size()<<std::endl;
     for(std::vector<TrajectoryCostFunction*>::iterator score_function = critics_.begin(); score_function != critics_.end(); ++score_function) {
       TrajectoryCostFunction* score_function_p = *score_function;
+      std::cout<<score_function_p->getName()<<": scale: "<<score_function_p->getScale()<<std::endl;
       if (score_function_p->getScale() == 0) {
         continue;
       }
       double cost = score_function_p->scoreTrajectory(traj);
+      double cost_before = cost;
+      if (cost != 0) {
+		  cost *= score_function_p->getScale();
+		}
+      //==============print some information===================//
+      if(debug)
+		std::cout<<score_function_p->getName()<<": {"<<cost_before<<", "<<cost<<"}, "<<std::endl;
+     //======================================================//
       if (cost < 0) {
 //        ROS_DEBUG("Velocity %.3lf, %.3lf, %.3lf discarded by cost function  %d with cost: %f", traj.xv_, traj.yv_, traj.thetav_, gen_id, cost);
         traj_cost = cost;
         break;
       }
-      std::cout<<"{"<<cost<<", ";
-      if (cost != 0) {
-        cost *= score_function_p->getScale();
-      }
-      std::cout<<cost<<"}, ";
+
       traj_cost += cost;
       if (best_traj_cost > 0) {
         // since we keep adding positives, once we are worse than the best, we will stay worse
@@ -76,7 +82,6 @@ namespace base_local_planner {
       }
       gen_id ++;
     }
-    std::cout<<std::endl;
 
     return traj_cost;
   }
@@ -141,6 +146,10 @@ namespace base_local_planner {
         break;
       }
     }
+    //debug print best trajectory
+    if(best_traj_cost >= 0)
+    	loop_traj_cost = scoreTrajectory(best_traj, -1, true);
+
     return best_traj_cost >= 0;
   }
 

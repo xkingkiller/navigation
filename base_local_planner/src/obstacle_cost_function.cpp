@@ -80,13 +80,19 @@ double ObstacleCostFunction::scoreTrajectory(Trajectory &traj) {
     ROS_ERROR("Footprint spec is empty, maybe missing call to setFootprint?");
     return -9;
   }
-
+//  std::cout<<"ObstacleCostFunction::scoreTrajectory: scale: "<<scale<<std::endl;
+  double deltaScale = 0.6 / (traj.getPointsSize()+1);
+  double distScale = 1.0;
+  double rawscale = scale;
+  //scale = 1;
   for (unsigned int i = 0; i < traj.getPointsSize(); ++i) {
     traj.getPoint(i, px, py, pth);
     double f_cost = footprintCost(px, py, pth,
         scale, footprint_spec_,
         costmap_, world_model_);
-
+    // scale foot print along dist
+    distScale += deltaScale;
+    scale = rawscale * distScale;
     if(f_cost < 0){
         return f_cost;
     }
@@ -123,6 +129,12 @@ double ObstacleCostFunction::footprintCost (
     base_local_planner::WorldModel* world_model) {
 
   //check if the footprint is legal
+  // scale foot print based on scale
+  for(int i = 0; i < footprint_spec.size(); ++i)
+  {
+	  footprint_spec[i].x *= scale;
+	  footprint_spec[i].y *= scale;
+  }
   // TODO: Cache inscribed radius
   double footprint_cost = world_model->footprintCost(x, y, th, footprint_spec);
 

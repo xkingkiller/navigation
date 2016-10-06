@@ -61,6 +61,15 @@ namespace dwa_local_planner {
         config.use_dwa,
         sim_period_);
 
+
+    path_costs_.setName("path_costs");
+    oscillation_costs_.setName("oscillation_costs");
+    alignment_costs_.setName("alignment_costs");
+    goal_costs_.setName("goal_costs");
+    goal_front_costs_.setName("goal_front_costs");
+    obstacle_costs_.setName("obstacle_costs");
+    travdist_costs_.setName("travdist_costs");
+
     double resolution = planner_util_->getCostmap()->getResolution();
     pdist_scale_ = config.path_distance_bias;
     // pdistscale used for both path and alignment, set  forward_point_distance to zero to discard alignment
@@ -170,11 +179,12 @@ namespace dwa_local_planner {
     std::vector<base_local_planner::TrajectoryCostFunction*> critics;
     critics.push_back(&oscillation_costs_); // discards oscillating motions (assisgns cost -1)
     critics.push_back(&obstacle_costs_); // discards trajectories that move into obstacles
+    critics.push_back(&travdist_costs_);
     critics.push_back(&goal_front_costs_); // prefers trajectories that make the nose go towards (local) nose goal
     critics.push_back(&alignment_costs_); // prefers trajectories that keep the robot nose on nose path
     critics.push_back(&path_costs_); // prefers trajectories on global path
     critics.push_back(&goal_costs_); // prefers trajectories that go towards (local) goal, based on wave propagation
-    critics.push_back(&travdist_costs_);
+
     // trajectory generators
     std::vector<base_local_planner::TrajectorySampleGenerator*> generator_list;
     generator_list.push_back(&generator_);
@@ -334,7 +344,9 @@ namespace dwa_local_planner {
         int nOK = 0;
         for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
         {
+        	double cost = t->cost_;
             if(t->cost_<0)
+//            	cost = 100;
                 continue;
             nOK ++;
             // Fill out the plan
@@ -345,7 +357,7 @@ namespace dwa_local_planner {
                 pt.y=p_y;
                 pt.z=0;
                 pt.path_cost=p_th;
-                pt.total_cost=t->cost_;
+                pt.total_cost=cost;//t->cost_;
                 traj_cloud_->push_back(pt);
             }
         }

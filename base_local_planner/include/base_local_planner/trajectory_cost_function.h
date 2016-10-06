@@ -39,6 +39,7 @@
 #define TRAJECTORYCOSTFUNCTION_H_
 
 #include <base_local_planner/trajectory.h>
+#include <iostream>
 
 namespace base_local_planner {
 
@@ -72,13 +73,17 @@ public:
     scale_ = scale;
   }
 
+  void setName(const std::string& name) {name_ = name;}
+  std::string getName() const {return name_;}
+
   virtual ~TrajectoryCostFunction() {}
 
 protected:
-  TrajectoryCostFunction(double scale = 1.0): scale_(scale) {}
+  TrajectoryCostFunction(double scale = 1.0): scale_(scale), name_("traj_cost_function") {}
 
 private:
   double scale_;
+  std::string name_;
 };
 
 }

@@ -102,6 +102,8 @@ double MapGridCostFunction::scoreTrajectory(Trajectory &traj) {
       return -4.0;
     }
     grid_dist = getCellCosts(cell_x, cell_y);
+//    if(getName() == "goal_front_costs")
+//    	std::cout<<"goal_front_costs: p"<<i<<",  cost: "<<grid_dist<<std::endl;
     //if a point on this trajectory has no clear path to the goal... it may be invalid
     if (stop_on_failure_) {
       if (grid_dist == map_.obstacleCosts()) {
